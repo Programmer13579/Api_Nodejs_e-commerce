@@ -107,11 +107,11 @@ app.post('/updateUser', (req, res) => {
 
 
 app.post('/register', (req, res) => {
-    const { nombre, apellido, fechaNac, username, password } = req.body;
-    const values = [nombre, apellido, fechaNac, username, password];
+    const { username, password } = req.body;
+    const values = [username, password];
     var connection = mysql.createConnection(credentials);
 
-    connection.query('call new_client(?,?,?,?,?);', values, (err, result) => {
+    connection.query('call new_client(?,?);', values, (err, result) => {
         connection.end(); // Cerrar la conexión
         if (err)
             res.status(500).send('existe');
@@ -147,9 +147,9 @@ app.post('/deleteUser', (req, res) => {
                 if (err)
                     res.send('error2');
                 else if (result[0][0].mensaje === 'inexistente')
-                    res.status(500).send('inexistente');
+                    res.send('inexistente');
                 else if (result[0][0].mensaje === 'correcto')
-                    res.status(500).send('correcto');
+                    res.send('correcto');
             })
         }
         catch{
