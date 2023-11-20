@@ -7,7 +7,7 @@ const bodyParser = require('body-parser');
 const app = express()
 app.use(cors())
 app.use(bodyParser.json({limit: '10mb'}))
-const moment = require('moment');
+
 const secret = process.env.SECRET
 
 app.get('/', function(req, res){
@@ -17,16 +17,16 @@ app.get('/', function(req, res){
 const credentials = {
     host: 'localhost',
     user: 'root',
-    password: '',
+    password: 'Porta1997',
     database: 'tienda_web'
 }
 
 
 app.get('/usuarios', (req, res) => {
     var connection = mysql.createConnection(credentials)
-    connection.query('SELECT * FROM credenciales', (err, result) => {
-        if (err)
-            res.status(500).send(err)
+    connection.query('SELECT * FROM credenciales', (error, result) => {
+        if (error)
+            res.status(500).send(error)
         else
             res.status(200).send(result)
     })
@@ -36,11 +36,9 @@ app.get('/usuarios', (req, res) => {
 app.get('/token', (req, res) => {
     try{
         const token = req.headers.authorization.split(' ')[1]
-        if (token === undefined)
-            return res.send('error');
         const payload = jwt.verify(token, secret)
         if(Date.now() > payload.exp){
-            return res.send("error")
+            return res.send({ error: 'token expired'})
         }
         res.send('existe')
     } catch (error) {
@@ -76,12 +74,10 @@ app.post('/login', (req, res) => {
 app.post('/updateUser', (req, res) => {
     try{
         const token = req.headers.authorization.split(' ')[1]
-        if (token === undefined)
-            return res.send('error1');
         const payload = jwt.verify(token, secret)
 
         if(Date.now() > payload.exp){
-            return res.send("error1");
+            return res.send({ error: 'token expired'});
         }
         const { newPassword, passwordActual } = req.body;
         const values = [newPassword, payload.username, passwordActual];
@@ -136,8 +132,6 @@ app.post('/register', (req, res) => {
 app.post('/deleteUser', (req, res) => {
     try{
         const token = req.headers.authorization.split(' ')[1]
-        if (token === undefined)
-            return res.send('error1');
         const payload = jwt.verify(token, secret)
 
         if(Date.now() > payload.exp){
@@ -169,135 +163,82 @@ app.post('/deleteUser', (req, res) => {
 
 
 
-
-app.post('/cargar-venta', (req, res) => {
+app.post('/comentario', (req, res) => {
     try{
-        // const shoppingHistory = ['(Motorola Moto E13 64gb 2gb Ram Azul Turquesa)','(Samsung Galaxy A04e 64 GB negro 3 GB RAM)','(Google Pixel 6a)']
+        const { comentario } = req.body;
+        var connection = mysql.createConnection(credentials);
+
         const token = req.headers.authorization.split(' ')[1]
-        if (token === undefined)
-            return res.send('error1');
         const payload = jwt.verify(token, secret)
 
         if(Date.now() > payload.exp){
-            return res.send('error1');
+            return res.send('token expirado');
         }
-
-        const { shoppingHistory, total } = req.body;
-
-        var connection1 = mysql.createConnection(credentials);
-        var connection2 = mysql.createConnection(credentials);
+        const values = [payload.username, comentario];
 
 
-        
-        // Obtener la fecha y hora actual
-        const fechaHoraActual = moment().format('YYYY-MM-DD HH:mm:ss');
-        
-        
-        const venta = [payload.username, fechaHoraActual, total];
-
-        let consulta = 'insert into tienda_web.productos_vendidos (id_venta, nombre, precio, cantidad) values '
-        
-        connection1.query('call cargar_venta(?,?,?)', venta, (err, result) => {
-            connection1.end(); // Cerrar la conexión
+        connection.query('call comentario(?,?);', values, (err, result) => {
+            connection.end(); // Cerrar la conexión
             if (err)
-                res.send("error2");
+                res.send('error');
             else if (result[0][0].mensaje === 'inexistente')
-                res.send('inexistente');
-            else{
-                let count = 1
-                for (product of shoppingHistory){
-                    consulta += ("(" + result[0][0].mensaje + "," + product)
-                    if(count < shoppingHistory.length){
-                        consulta += ","
-                    }
-                
-                    count++;
-                }
-                connection2.query(consulta, (err, result) => {
-                    connection2.end(); // Cerrar la conexión
-                    if (err)
-                        res.send("error2");
-                    else
-                        res.send("correcto");
-                })
-            }
+                res.status(500).send('cliente inexistente');
+            else if (result[0][0].mensaje === 'correcto')
+                res.status(500).send('correcto');
         });
-        
     }catch (error) {
         res.send({ error: error.message});
     }
 });
 
 
+app.post('/notification', (req, res) => {
+    const { usuario, notificacion } = req.body;
+    var connection = mysql.createConnection(credentials);
 
-app.get('/get_purchases', (req, res) => {
-    const token = req.headers.authorization.split(' ')[1]
-    if (token === undefined)
-        return res.send('inexistente');
-    const payload = jwt.verify(token, secret)
+    const values = [usuario, notificacion];
 
-    if(Date.now() > payload.exp){
-        return res.send('inexistente');
-    }
 
-    var connection = mysql.createConnection(credentials)
-    connection.query('call get_purchases(?)', payload.username,(err, result) => {
-        connection.end()
+    connection.query('call notificacion(?,?);', values, (err, result) => {
+        connection.end(); // Cerrar la conexión
         if (err)
-            res.send(err)
-        else if(result[0][0])
-            if(result[0][0].mensaje === 'inexistente')
-                res.send("inexistente")
-        else{
-            res.send(result)
-        }
-    })
+            res.send('error');
+        else if (result[0][0].mensaje === 'inexistente')
+            res.status(500).send('cliente inexistente');
+        else if (result[0][0].mensaje === 'correcto')
+            res.status(500).send('correcto');
+    });
 });
 
 
 
-app.post('/get_purchasing_details', (req, res) => {
-    try{
-        const token = req.headers.authorization.split(' ')[1]
-        if (token === undefined)
-            return res.send('inexistente');
-        const payload = jwt.verify(token, secret)
-    
-        if(Date.now() > payload.exp){
-            return res.send('inexistente');
-        }
 
-        var connection = mysql.createConnection(credentials)
-        connection.query('call get_purchasing_details(?)', req.body.id_venta, (err, result) => {
-            connection.end()
-            if (err)
-                res.send(err)
-            else if(result[0][0])
-                if(result[0][0].mensaje === 'inexistente')
-                    res.send("inexistente")
-            else{
-                res.send(result)
-            }
-        })
-    }
-    catch(error){
-        console.log(error)
-    }
-});
+
+
+
+
 
 app.use('/imagenes', express.static('./imagenes'));
 
 
 app.get('/productos', (req, res) => {
     var connection = mysql.createConnection(credentials)
-    connection.query('SELECT * FROM productos', (err, result) => {
-        connection.end()
-        if (err)
-            res.status(500).send(err)
+    connection.query('SELECT * FROM productos', (error, result) => {
+        if (error)
+            res.status(500).send(error)
         else
             res.status(200).send(result)
     })
+    connection.end()
 })
+
+
+
+
+
+
+
+
 
 
 app.listen('5000', () =>{
