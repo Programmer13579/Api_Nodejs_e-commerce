@@ -266,7 +266,6 @@ app.post('/get_purchasing_details', (req, res) => {
         if(Date.now() > payload.exp){
             return res.send('inexistente');
         }
-
         var connection = mysql.createConnection(credentials)
         connection.query('call get_purchasing_details(?)', req.body.id_venta, (err, result) => {
             connection.end()
